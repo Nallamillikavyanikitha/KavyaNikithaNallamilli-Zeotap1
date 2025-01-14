@@ -1,0 +1,47 @@
+import re
+import requests
+from flask import Flask, request, jsonify
+from bs4 import BeautifulSoup
+
+app = Flask(__name__)
+
+# Define documentation URLs
+documentation_urls = {
+    "segment": "https://segment.com/docs/",
+    "mparticle": "https://docs.mparticle.com/",
+    "lytics": "https://docs.lytics.com/",
+    "zeotap": "https://docs.zeotap.com/home/en-us/"
+}
+
+# Function to fetch and parse documentation
+def fetch_documentation(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    return soup.get_text()
+
+# Function to search for relevant information
+def search_documentation(doc_text, query):
+    query = re.escape(query)
+    matches = re.findall(query, doc_text, re.IGNORECASE)
+    return matches
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_input = request.json.get('query')
+    platform = request.json.get('platform').lower()
+    
+    if platform not in documentation_urls:
+        return jsonify({"response": "Unsupported platform."}), 400
+    
+    doc_text = fetch_documentation(documentation_urls[platform])
+    matches = search_documentation(doc_text, user_input)
+    
+    if matches:
+        response = f"Found the following information: {' '.join(matches[:5])}"
+    else:
+        response = "Sorry, I couldn't find relevant information."
+    
+    return jsonify({"response": response})
+
+if __name__ == '__main__':
+    app.run(debug=True)
